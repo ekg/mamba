@@ -226,8 +226,22 @@ class MambaLMHeadModel(nn.Module, GenerationMixin):
         return CausalLMOutput(logits=lm_logits)
 
     @classmethod
-    def from_pretrained(cls, pretrained_model_name, device=None, dtype=None, **kwargs):
-        config = load_config_hf(pretrained_model_name)
-        model = cls(**config, device=device, dtype=dtype, **kwargs)
-        model.load_state_dict(load_state_dict_hf(pretrained_model_name, device=device, dtype=dtype))
+    def from_pretrained(cls, pretrained_model_name_or_path, device=None, dtype=None, **kwargs):
+        # Check if the input is a local path
+        if os.path.isdir(pretrained_model_name_or_path):
+            # Load configuration from a local JSON file
+            config_path = os.path.join(pretrained_model_name_or_path, 'config.json')
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+            # Initialize the model with the loaded configuration
+            model = cls(**config, device=device, dtype=dtype, **kwargs)
+            # Load the model state dictionary from a local checkpoint file
+            checkpoint_path = os.path.join(pretrained_model_name_or_path, 'pytorch_model.bin')
+            state_dict = torch.load(checkpoint_path, map_location=device)
+            model.load_state_dict(state_dict)
+        else:
+            # Load from Hugging Face as before
+            config = load_config_hf(pretrained_model_name_or_path)
+            model = cls(**config, device=device, dtype=dtype, **kwargs)
+            model.load_state_dict(load_state_dict_hf(pretrained_model_name_or_path, device=device, dtype=dtype))
         return model
